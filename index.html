@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#150029">
 <link rel="manifest" href="manifest.json">
-<title>NEON TETRIS v1.6</title>
+<title>NEON TETRIS v1.7</title>
 <style>
   :root {
     --cell: 38px;
@@ -32,7 +32,7 @@
     justify-content: center;
     gap: 40px;
     height: 100vh;
-    width: 100vw;
+    width: 100%;
     flex-wrap: wrap;
     padding-top: 8px;
   }
@@ -100,42 +100,43 @@
     margin-top: 10px;
   }
   .side {
-    width: 190px;
     display: flex;
-    flex-direction: column;
-    gap: 18px;
+    flex-direction: row;
+    gap: 14px;
+    align-items: stretch;
   }
   .box {
     background: linear-gradient(145deg, #150029, #0a0018);
     border-radius: 14px;
-    padding: 14px 16px;
+    padding: 10px 20px;
     box-shadow: 0 0 0 2px #00e5ff, 0 0 18px rgba(0, 229, 255, 0.45);
+    text-align: center;
+    min-width: 90px;
   }
   .box h3 {
-    margin: 0 0 8px 0;
-    font-size: 0.85rem;
+    margin: 0 0 6px 0;
+    font-size: 0.8rem;
     letter-spacing: 3px;
     color: #00e5ff;
     text-transform: uppercase;
   }
   .stat {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     font-weight: bold;
     color: #ffe600;
     text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
+    transition: color 0.2s ease, text-shadow 0.2s ease;
   }
-  canvas#next {
-    display: block;
-    margin: 0 auto;
-    background: #08000f;
-    border-radius: 8px;
+  .stat.newBest {
+    color: #00ff85;
+    text-shadow: 0 0 16px rgba(0, 255, 133, 0.95), 0 0 30px rgba(0, 255, 133, 0.5);
+    animation: bestPulse 0.5s ease;
   }
-  .controls {
-    font-size: 0.85rem;
-    line-height: 1.7;
-    color: #d9b8ff;
+  @keyframes bestPulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1); }
   }
-  .controls b { color: #ff8ef0; }
   button {
     font-family: inherit;
     font-size: 1rem;
@@ -158,9 +159,13 @@
   body.mobile #app {
     flex-direction: column;
     justify-content: flex-start;
+    align-items: center;
     gap: 6px;
     padding-top: 4px;
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
     height: 100dvh;
+    box-sizing: border-box;
   }
   body.mobile h1 {
     font-size: 1.3rem;
@@ -169,23 +174,20 @@
   body.mobile .panel { gap: 6px; }
   body.mobile #boardWrap { padding: 6px; border-radius: 12px; }
   body.mobile .side {
-    width: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
+    gap: 10px;
   }
-  body.mobile .side .box {
-    padding: 6px 10px;
+  body.mobile .box {
+    padding: 6px 14px;
     border-radius: 10px;
+    min-width: 70px;
   }
   body.mobile .box h3 { font-size: 0.6rem; margin-bottom: 2px; }
-  body.mobile .stat { font-size: 1.1rem; }
-  body.mobile canvas#next { display: none; }
-  body.mobile .controls { display: none; }
-  body.mobile #restartBtn {
-    padding: 8px 16px;
-    font-size: 0.85rem;
+  body.mobile .stat { font-size: 1.2rem; }
+  body.mobile #boardWrap {
+    box-shadow:
+      0 0 0 2px #ff2ee6,
+      0 0 12px 3px rgba(255, 46, 230, 0.5),
+      inset 0 0 20px rgba(0, 229, 255, 0.12);
   }
 
   .mobilePause {
@@ -210,15 +212,6 @@
     padding-left: max(6px, env(safe-area-inset-left, 0px));
     padding-right: max(6px, env(safe-area-inset-right, 0px));
   }
-  .swipeHint {
-    display: none;
-    font-size: 0.7rem;
-    color: #9be8ff;
-    text-align: center;
-    line-height: 1.5;
-    max-width: 320px;
-  }
-  body.mobile .swipeHint { display: block; }
 
   @media (max-width: 900px) {
     :root { --cell: 26px; }
@@ -242,7 +235,7 @@
 <body>
 <div id="app">
   <div class="panel">
-    <h1>NEON TETRIS<span class="ver">v1.6</span></h1>
+    <h1>NEON TETRIS<span class="ver">v1.7</span></h1>
     <div id="boardWrap">
       <canvas id="board"></canvas>
       <div id="overlay">
@@ -258,28 +251,10 @@
       <div class="stat" id="score">0</div>
     </div>
     <div class="box">
-      <h3>Level</h3>
-      <div class="stat" id="level">1</div>
+      <h3>Best</h3>
+      <div class="stat" id="best">0</div>
     </div>
-    <div class="box">
-      <h3>Lines</h3>
-      <div class="stat" id="lines">0</div>
-    </div>
-    <div class="box">
-      <h3>Next</h3>
-      <canvas id="next" width="140" height="140"></canvas>
-    </div>
-    <div class="box controls">
-      <h3>Controls</h3>
-      <div><b>←/→ or A/D</b> move</div>
-      <div><b>↓ or S</b> soft drop</div>
-      <div><b>R</b> rotate</div>
-      <div><b>Space</b> hard drop</div>
-      <div><b>P</b> pause</div>
-    </div>
-    <button id="restartBtn">RESTART</button>
   </div>
-  <div class="swipeHint">Swipe ◀▶ to move · swipe ▼ to soft drop · flick ▼ fast to hard drop · tap board to rotate</div>
   <button id="tPause" class="mobilePause">II</button>
 </div>
 
@@ -299,8 +274,9 @@
   let CELL;
   function computeCell(){
     if (isMobile) {
-      const reserved = 130; // room for title, stat bar, swipe hint, pause button
-      const availW = window.innerWidth * 0.94;
+      const reserved = 90; // room for title, stat row, pause button (post-minimalist UI)
+      const horizontalReserve = 50; // #app padding (20) + #boardWrap padding (12) + glow bleed margin
+      const availW = document.documentElement.clientWidth - horizontalReserve;
       const availH = (window.innerHeight - reserved);
       CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
       CELL = Math.max(16, Math.min(CELL, 34));
@@ -311,9 +287,6 @@
     canvas.height = ROWS * CELL;
   }
   computeCell();
-
-  const nextCanvas = document.getElementById('next');
-  const nctx = nextCanvas.getContext('2d');
 
   const COLORS = {
     I: '#00e5ff',
@@ -365,6 +338,7 @@
   }
 
   let grid, current, nextType, score, level, lines, dropInterval, dropTimer, lastTime, gameOver, paused, animId;
+  let sessionBest = 0;
 
   function init(){
     grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
@@ -388,10 +362,11 @@
     current = makePiece(type);
     if (collides(current.cells, current.x, current.y)) {
       gameOver = true;
-      showOverlay('GAME OVER', 'Score: ' + score, 'PLAY AGAIN');
+      showOverlay('GAME OVER', 'Score: ' + score, null);
       releaseWakeLock();
+      setTimeout(() => { init(); }, 1400);
     }
-    drawNext();
+    // Next-piece preview removed from UI, but nextType still drives spawn order
   }
 
   function collides(cells, ox, oy){
@@ -485,8 +460,14 @@
 
   function updateStats(){
     document.getElementById('score').textContent = score;
-    document.getElementById('level').textContent = level;
-    document.getElementById('lines').textContent = lines;
+    const bestEl = document.getElementById('best');
+    if (score > sessionBest) {
+      sessionBest = score;
+      bestEl.textContent = sessionBest;
+      bestEl.classList.remove('newBest');
+      void bestEl.offsetWidth; // restart animation
+      bestEl.classList.add('newBest');
+    }
   }
 
   function drawCell(c, x, y, color, alpha){
@@ -552,22 +533,6 @@
     }
   }
 
-  function drawNext(){
-    nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-    const cells = SHAPES[nextType];
-    const size = 28;
-    const offX = (nextCanvas.width - 4*size) / 2;
-    const offY = (nextCanvas.height - 2*size) / 2;
-    for (const [cx, cy] of cells) {
-      const px = offX + cx*size, py = offY + cy*size;
-      const grad = nctx.createLinearGradient(px, py, px+size, py+size);
-      grad.addColorStop(0, COLORS[nextType]);
-      grad.addColorStop(1, shade(COLORS[nextType], -25));
-      nctx.fillStyle = grad;
-      nctx.fillRect(px+1, py+1, size-2, size-2);
-    }
-  }
-
   function loop(t){
     if (!lastTime) lastTime = t;
     const delta = t - lastTime;
@@ -589,9 +554,15 @@
 
   function showOverlay(title, sub, btnText){
     const ov = document.getElementById('overlay');
+    const btn = document.getElementById('overlayBtn');
     document.getElementById('overlayTitle').textContent = title;
     document.getElementById('overlaySub').textContent = sub;
-    document.getElementById('overlayBtn').textContent = btnText;
+    if (btnText) {
+      btn.textContent = btnText;
+      btn.style.display = '';
+    } else {
+      btn.style.display = 'none';
+    }
     ov.style.display = 'flex';
   }
   function hideOverlay(){
@@ -614,7 +585,6 @@
     if (gameOver) { init(); }
     else { togglePause(); }
   });
-  document.getElementById('restartBtn').addEventListener('click', init);
 
   window.addEventListener('keydown', (e) => {
     switch(e.code) {
