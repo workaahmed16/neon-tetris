@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NEON TETRIS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#150029">
+<link rel="manifest" href="manifest.json">
+<title>NEON TETRIS v1.6</title>
 <style>
   :root {
     --cell: 38px;
@@ -18,6 +21,10 @@
     color: #fff;
     font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
     overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   #app {
     display: flex;
@@ -67,6 +74,7 @@
     background: #08000f;
     border-radius: 8px;
     image-rendering: pixelated;
+    touch-action: none;
   }
   #overlay {
     position: absolute;
@@ -180,56 +188,61 @@
     font-size: 0.85rem;
   }
 
-  .touchpad {
+  .mobilePause {
     display: none;
-    width: 100%;
-    max-width: 420px;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
-    margin-top: 4px;
-  }
-  body.mobile .touchpad { display: flex; }
-  .touchpad .dpad {
-    display: grid;
-    grid-template-columns: 56px 56px;
-    grid-template-rows: 56px 56px;
-    gap: 8px;
-  }
-  .touchpad .actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .touchpad button {
     width: 56px;
     height: 56px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     font-size: 1.4rem;
     border-radius: 14px;
-    display: flex;
     align-items: center;
     justify-content: center;
+    margin-top: 6px;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     user-select: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  #tRotate { background: linear-gradient(90deg, #c400ff, #ff2ee6); grid-column: 2; grid-row: 1; }
-  #tLeft { grid-column: 1; grid-row: 2; }
-  #tRight { grid-column: 2; grid-row: 2; }
-  #tDown { background: linear-gradient(90deg, #00e5ff, #00ff85); }
-  #tDrop { background: linear-gradient(90deg, #ffe600, #ff8c1a); font-size: 1.6rem; }
+  body.mobile .mobilePause { display: flex; }
+  body.mobile #boardWrap {
+    padding-left: max(6px, env(safe-area-inset-left, 0px));
+    padding-right: max(6px, env(safe-area-inset-right, 0px));
+  }
+  .swipeHint {
+    display: none;
+    font-size: 0.7rem;
+    color: #9be8ff;
+    text-align: center;
+    line-height: 1.5;
+    max-width: 320px;
+  }
+  body.mobile .swipeHint { display: block; }
 
   @media (max-width: 900px) {
     :root { --cell: 26px; }
     h1 { font-size: 2rem; }
   }
+
+  h1 .ver {
+    display: block;
+    font-size: 0.9rem;
+    letter-spacing: 3px;
+    margin-top: 2px;
+    background: none;
+    -webkit-text-fill-color: initial;
+    color: #7de8ff;
+    text-shadow: 0 0 8px rgba(125, 232, 255, 0.6);
+    animation: none;
+  }
+  body.mobile h1 .ver { font-size: 0.65rem; }
 </style>
 </head>
 <body>
 <div id="app">
   <div class="panel">
-    <h1>NEON TETRIS</h1>
+    <h1>NEON TETRIS<span class="ver">v1.6</span></h1>
     <div id="boardWrap">
       <canvas id="board"></canvas>
       <div id="overlay">
@@ -266,18 +279,8 @@
     </div>
     <button id="restartBtn">RESTART</button>
   </div>
-  <div class="touchpad">
-    <div class="dpad">
-      <button id="tRotate">R</button>
-      <button id="tLeft">◀</button>
-      <button id="tRight">▶</button>
-    </div>
-    <div class="actions">
-      <button id="tDown">▼</button>
-      <button id="tDrop">⤓</button>
-      <button id="tPause">II</button>
-    </div>
-  </div>
+  <div class="swipeHint">Swipe ◀▶ to move · swipe ▼ to soft drop · flick ▼ fast to hard drop · tap board to rotate</div>
+  <button id="tPause" class="mobilePause">II</button>
 </div>
 
 <script>
@@ -296,7 +299,7 @@
   let CELL;
   function computeCell(){
     if (isMobile) {
-      const reserved = 190; // room for title, stat bar, touchpad
+      const reserved = 130; // room for title, stat bar, swipe hint, pause button
       const availW = window.innerWidth * 0.94;
       const availH = (window.innerHeight - reserved);
       CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
@@ -376,6 +379,7 @@
     hideOverlay();
     if (animId) cancelAnimationFrame(animId);
     animId = requestAnimationFrame(loop);
+    requestWakeLock();
   }
 
   function spawn(){
@@ -385,6 +389,7 @@
     if (collides(current.cells, current.x, current.y)) {
       gameOver = true;
       showOverlay('GAME OVER', 'Score: ' + score, 'PLAY AGAIN');
+      releaseWakeLock();
     }
     drawNext();
   }
@@ -596,8 +601,13 @@
   function togglePause(){
     if (gameOver) return;
     paused = !paused;
-    if (paused) showOverlay('PAUSED', isMobile ? 'Tap resume to continue' : 'Press P to resume', 'RESUME');
-    else hideOverlay();
+    if (paused) {
+      showOverlay('PAUSED', isMobile ? 'Tap resume to continue' : 'Press P to resume', 'RESUME');
+      releaseWakeLock();
+    } else {
+      hideOverlay();
+      requestWakeLock();
+    }
   }
 
   document.getElementById('overlayBtn').addEventListener('click', () => {
@@ -620,19 +630,111 @@
     }
   });
 
-  // ---- Touch controls (mobile only, hidden via CSS on desktop) ----
-  function bindTouch(id, fn){
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('touchstart', (e) => { e.preventDefault(); fn(); }, { passive: false });
-    el.addEventListener('click', fn); // fallback for mouse testing
+  // ---- Touch controls: swipe gestures on the board itself ----
+  const SWIPE_MOVE_THRESHOLD = 24;      // px, horizontal distance to register a column move
+  const SWIPE_DROP_THRESHOLD = 18;      // px, vertical distance to register a soft-drop step
+  const HARD_DROP_VELOCITY = 1.1;       // px/ms downward speed to count as a hard drop flick
+  const HARD_DROP_DISTANCE = 90;        // px, minimum downward distance for a fast flick
+  const TAP_MAX_MOVEMENT = 12;          // px, max movement to still count as a tap (rotate)
+  const TAP_MAX_DURATION = 250;         // ms, max duration to still count as a tap
+
+  let touchState = null;
+
+  function onTouchStart(e){
+    if (!isMobile || gameOver) return;
+    const t = e.changedTouches[0];
+    touchState = {
+      startX: t.clientX, startY: t.clientY,
+      lastX: t.clientX, lastY: t.clientY,
+      startTime: performance.now(),
+      lastMoveTime: performance.now(),
+      movedCols: 0, movedRows: 0
+    };
+    e.preventDefault();
   }
-  bindTouch('tLeft', () => move(-1));
-  bindTouch('tRight', () => move(1));
-  bindTouch('tDown', () => softDrop());
-  bindTouch('tRotate', () => rotate());
-  bindTouch('tDrop', () => hardDrop());
-  bindTouch('tPause', () => togglePause());
+
+  function onTouchMove(e){
+    if (!touchState || paused || gameOver) return;
+    const t = e.changedTouches[0];
+    const now = performance.now();
+    const dx = t.clientX - touchState.lastX;
+    const dy = t.clientY - touchState.lastY;
+
+    // Horizontal: move one column per threshold crossed
+    if (Math.abs(dx) >= SWIPE_MOVE_THRESHOLD) {
+      const dir = dx > 0 ? 1 : -1;
+      move(dir);
+      touchState.lastX = t.clientX;
+      touchState.movedCols += Math.abs(dir);
+    }
+    // Vertical (downward only): soft-drop one row per threshold crossed
+    if (dy >= SWIPE_DROP_THRESHOLD) {
+      softDrop();
+      touchState.lastY = t.clientY;
+      touchState.movedRows += 1;
+    }
+    touchState.lastMoveTime = now;
+    e.preventDefault();
+  }
+
+  function onTouchEnd(e){
+    if (!touchState || gameOver) { touchState = null; return; }
+    const t = e.changedTouches[0];
+    const now = performance.now();
+    const totalDx = t.clientX - touchState.startX;
+    const totalDy = t.clientY - touchState.startY;
+    const duration = now - touchState.startTime;
+    const distance = Math.hypot(totalDx, totalDy);
+
+    if (!paused) {
+      // Fast downward flick -> hard drop (checked by distance+velocity, or big fast raw swipe)
+      const downVelocity = totalDy > 0 ? (totalDy / Math.max(duration, 1)) : 0;
+      if (totalDy > HARD_DROP_DISTANCE && downVelocity > HARD_DROP_VELOCITY) {
+        hardDrop();
+      } else if (distance <= TAP_MAX_MOVEMENT && duration <= TAP_MAX_DURATION) {
+        // Tap with negligible movement -> rotate
+        rotate();
+      }
+    }
+    touchState = null;
+    e.preventDefault();
+  }
+
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', () => { touchState = null; }, { passive: false });
+
+  // Prevent double-tap-to-zoom on the board (belt-and-suspenders alongside touch-action:none)
+  let lastTapTime = 0;
+  canvas.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTapTime < 300) e.preventDefault();
+    lastTapTime = now;
+  }, { passive: false });
+
+  document.getElementById('tPause').addEventListener('click', togglePause);
+  document.getElementById('tPause').addEventListener('touchstart', (e) => { e.preventDefault(); togglePause(); }, { passive: false });
+
+  // ---- Screen Wake Lock: keep screen on during active play ----
+  let wakeLock = null;
+  async function requestWakeLock(){
+    if (!('wakeLock' in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+    } catch (err) {
+      // Fails silently (e.g. low battery, unsupported) — never block gameplay
+      wakeLock = null;
+    }
+  }
+  function releaseWakeLock(){
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !paused && !gameOver) {
+      requestWakeLock();
+    }
+  });
 
   // ---- Refit board on resize / orientation change (mobile) ----
   let resizeTimer;
