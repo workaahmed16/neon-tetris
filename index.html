@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NEON TETRIS</title>
+<style>
+  :root {
+    --cell: 38px;
+    --cols: 10;
+    --rows: 20;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: radial-gradient(ellipse at center, #1b0033 0%, #05000f 70%, #000000 100%);
+    color: #fff;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    overflow: hidden;
+  }
+  #app {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 40px;
+    height: 100vh;
+    width: 100vw;
+    flex-wrap: wrap;
+    padding-top: 8px;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  h1 {
+    font-size: 2.1rem;
+    margin: 0;
+    letter-spacing: 6px;
+    background: linear-gradient(90deg, #ff2ee6, #00e5ff, #ffe600, #00ff85, #ff2ee6);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: hueflow 6s linear infinite;
+    text-align: center;
+    text-shadow: 0 0 30px rgba(255,255,255,0.15);
+  }
+  @keyframes hueflow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+  #boardWrap {
+    position: relative;
+    padding: 14px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, #150029, #0a0018);
+    box-shadow:
+      0 0 0 3px #ff2ee6,
+      0 0 25px 6px rgba(255, 46, 230, 0.55),
+      inset 0 0 40px rgba(0, 229, 255, 0.15);
+  }
+  canvas#board {
+    display: block;
+    background: #08000f;
+    border-radius: 8px;
+    image-rendering: pixelated;
+  }
+  #overlay {
+    position: absolute;
+    inset: 14px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    background: rgba(5, 0, 15, 0.85);
+    border-radius: 8px;
+    text-align: center;
+    padding: 20px;
+  }
+  #overlay h2 {
+    font-size: 2rem;
+    margin: 0;
+    color: #ffe600;
+    text-shadow: 0 0 12px #ffe600;
+  }
+  #overlay p { margin: 0; color: #9be8ff; font-size: 1.1rem; }
+  #overlay button {
+    margin-top: 10px;
+  }
+  .side {
+    width: 190px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .box {
+    background: linear-gradient(145deg, #150029, #0a0018);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 0 0 2px #00e5ff, 0 0 18px rgba(0, 229, 255, 0.45);
+  }
+  .box h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    letter-spacing: 3px;
+    color: #00e5ff;
+    text-transform: uppercase;
+  }
+  .stat {
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #ffe600;
+    text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
+  }
+  canvas#next {
+    display: block;
+    margin: 0 auto;
+    background: #08000f;
+    border-radius: 8px;
+  }
+  .controls {
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: #d9b8ff;
+  }
+  .controls b { color: #ff8ef0; }
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(90deg, #ff2ee6, #00e5ff);
+    color: #05000f;
+    box-shadow: 0 0 18px rgba(255, 46, 230, 0.6);
+    transition: transform 0.1s ease;
+  }
+  button:hover { transform: scale(1.05); }
+  button:active { transform: scale(0.97); }
+  @media (max-width: 900px) {
+    :root { --cell: 26px; }
+    h1 { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <h1>NEON TETRIS</h1>
+    <div id="boardWrap">
+      <canvas id="board"></canvas>
+      <div id="overlay">
+        <h2 id="overlayTitle">PAUSED</h2>
+        <p id="overlaySub">Press P to resume</p>
+        <button id="overlayBtn">RESUME</button>
+      </div>
+    </div>
+  </div>
+  <div class="side">
+    <div class="box">
+      <h3>Score</h3>
+      <div class="stat" id="score">0</div>
+    </div>
+    <div class="box">
+      <h3>Level</h3>
+      <div class="stat" id="level">1</div>
+    </div>
+    <div class="box">
+      <h3>Lines</h3>
+      <div class="stat" id="lines">0</div>
+    </div>
+    <div class="box">
+      <h3>Next</h3>
+      <canvas id="next" width="140" height="140"></canvas>
+    </div>
+    <div class="box controls">
+      <h3>Controls</h3>
+      <div><b>←/→ or A/D</b> move</div>
+      <div><b>↓ or S</b> soft drop</div>
+      <div><b>R</b> rotate</div>
+      <div><b>Space</b> hard drop</div>
+      <div><b>P</b> pause</div>
+    </div>
+    <button id="restartBtn">RESTART</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const COLS = 10, ROWS = 20;
+  const CELL = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell'));
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  canvas.width = COLS * CELL;
+  canvas.height = ROWS * CELL;
+
+  const nextCanvas = document.getElementById('next');
+  const nctx = nextCanvas.getContext('2d');
+
+  const COLORS = {
+    I: '#00e5ff',
+    O: '#ffe600',
+    T: '#c400ff',
+    S: '#00ff85',
+    Z: '#ff2e5e',
+    J: '#2e6bff',
+    L: '#ff8c1a'
+  };
+
+  const SHAPES = {
+    I: [[0,1],[1,1],[2,1],[3,1]],
+    O: [[1,0],[2,0],[1,1],[2,1]],
+    T: [[1,0],[0,1],[1,1],[2,1]],
+    S: [[1,0],[2,0],[0,1],[1,1]],
+    Z: [[0,0],[1,0],[1,1],[2,1]],
+    J: [[0,0],[0,1],[1,1],[2,1]],
+    L: [[2,0],[0,1],[1,1],[2,1]]
+  };
+
+  function rotateCells(cells, pivot){
+    // rotate 90deg clockwise around pivot (approx center)
+    return cells.map(([x,y]) => {
+      const rx = pivot[0] + (pivot[1] - y);
+      const ry = pivot[1] + (x - pivot[0]);
+      return [rx, ry];
+    });
+  }
+
+  function makePiece(type){
+    const cells = SHAPES[type].map(c => c.slice());
+    return { type, cells, x: 3, y: -1, color: COLORS[type] };
+  }
+
+  const bagOrder = () => {
+    const bag = Object.keys(SHAPES);
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    return bag;
+  };
+
+  let bag = [];
+  function nextFromBag(){
+    if (bag.length === 0) bag = bagOrder();
+    return bag.pop();
+  }
+
+  let grid, current, nextType, score, level, lines, dropInterval, dropTimer, lastTime, gameOver, paused, animId;
+
+  function init(){
+    grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+    score = 0; level = 1; lines = 0;
+    dropInterval = 800;
+    dropTimer = 0; lastTime = 0;
+    gameOver = false; paused = false;
+    bag = [];
+    nextType = nextFromBag();
+    spawn();
+    updateStats();
+    hideOverlay();
+    if (animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(loop);
+  }
+
+  function spawn(){
+    const type = nextType;
+    nextType = nextFromBag();
+    current = makePiece(type);
+    if (collides(current.cells, current.x, current.y)) {
+      gameOver = true;
+      showOverlay('GAME OVER', 'Score: ' + score, 'PLAY AGAIN');
+    }
+    drawNext();
+  }
+
+  function collides(cells, ox, oy){
+    for (const [cx, cy] of cells) {
+      const x = ox + cx, y = oy + cy;
+      if (x < 0 || x >= COLS || y >= ROWS) return true;
+      if (y >= 0 && grid[y][x]) return true;
+    }
+    return false;
+  }
+
+  function merge(){
+    for (const [cx, cy] of current.cells) {
+      const x = current.x + cx, y = current.y + cy;
+      if (y >= 0) grid[y][x] = current.color;
+    }
+  }
+
+  function clearLines(){
+    let cleared = 0;
+    for (let y = ROWS - 1; y >= 0; y--) {
+      if (grid[y].every(cell => cell)) {
+        grid.splice(y, 1);
+        grid.unshift(Array(COLS).fill(null));
+        cleared++;
+        y++;
+      }
+    }
+    if (cleared > 0) {
+      const points = [0, 100, 300, 500, 800][cleared] * level;
+      score += points;
+      lines += cleared;
+      level = Math.floor(lines / 10) + 1;
+      dropInterval = Math.max(100, 800 - (level - 1) * 65);
+      updateStats();
+    }
+  }
+
+  function move(dx){
+    if (gameOver || paused) return;
+    if (!collides(current.cells, current.x + dx, current.y)) {
+      current.x += dx;
+    }
+  }
+
+  function softDrop(){
+    if (gameOver || paused) return;
+    if (!collides(current.cells, current.x, current.y + 1)) {
+      current.y += 1;
+      score += 1;
+      updateStats();
+    } else {
+      lockPiece();
+    }
+    dropTimer = 0;
+  }
+
+  function hardDrop(){
+    if (gameOver || paused) return;
+    let dist = 0;
+    while (!collides(current.cells, current.x, current.y + 1)) {
+      current.y += 1;
+      dist++;
+    }
+    score += dist * 2;
+    lockPiece();
+    updateStats();
+  }
+
+  function lockPiece(){
+    merge();
+    clearLines();
+    spawn();
+    dropTimer = 0;
+  }
+
+  function rotate(){
+    if (gameOver || paused) return;
+    if (current.type === 'O') return;
+    let pivot = current.type === 'I' ? [1.5, 1] : [1, 1];
+    const rotated = rotateCells(current.cells, pivot).map(([x,y]) => [Math.round(x), Math.round(y)]);
+    const kicks = [0, -1, 1, -2, 2];
+    for (const k of kicks) {
+      if (!collides(rotated, current.x + k, current.y)) {
+        current.cells = rotated;
+        current.x += k;
+        return;
+      }
+    }
+  }
+
+  function updateStats(){
+    document.getElementById('score').textContent = score;
+    document.getElementById('level').textContent = level;
+    document.getElementById('lines').textContent = lines;
+  }
+
+  function drawCell(c, x, y, color, alpha){
+    c.save();
+    c.globalAlpha = alpha === undefined ? 1 : alpha;
+    const px = x * CELL, py = y * CELL;
+    const grad = c.createLinearGradient(px, py, px + CELL, py + CELL);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, shade(color, -25));
+    c.fillStyle = grad;
+    c.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+    c.strokeStyle = 'rgba(255,255,255,0.35)';
+    c.lineWidth = 1;
+    c.strokeRect(px + 1.5, py + 1.5, CELL - 3, CELL - 3);
+    c.restore();
+  }
+
+  function shade(hex, percent){
+    const num = parseInt(hex.slice(1), 16);
+    let r = (num >> 16) + Math.round(2.55 * percent);
+    let g = ((num >> 8) & 0x00FF) + Math.round(2.55 * percent);
+    let b = (num & 0x0000FF) + Math.round(2.55 * percent);
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+  }
+
+  function ghostY(){
+    let gy = current.y;
+    while (!collides(current.cells, current.x, gy + 1)) gy++;
+    return gy;
+  }
+
+  function draw(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // grid backdrop lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    for (let x = 0; x <= COLS; x++) {
+      ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y <= ROWS; y++) {
+      ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(canvas.width, y*CELL); ctx.stroke();
+    }
+    // settled blocks
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[y][x]) drawCell(ctx, x, y, grid[y][x]);
+      }
+    }
+    if (!gameOver) {
+      // ghost
+      const gy = ghostY();
+      for (const [cx, cy] of current.cells) {
+        const y = gy + cy;
+        if (y >= 0) drawCell(ctx, current.x + cx, y, current.color, 0.2);
+      }
+      // current
+      for (const [cx, cy] of current.cells) {
+        const y = current.y + cy;
+        if (y >= 0) drawCell(ctx, current.x + cx, y, current.color);
+      }
+    }
+  }
+
+  function drawNext(){
+    nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+    const cells = SHAPES[nextType];
+    const size = 28;
+    const offX = (nextCanvas.width - 4*size) / 2;
+    const offY = (nextCanvas.height - 2*size) / 2;
+    for (const [cx, cy] of cells) {
+      const px = offX + cx*size, py = offY + cy*size;
+      const grad = nctx.createLinearGradient(px, py, px+size, py+size);
+      grad.addColorStop(0, COLORS[nextType]);
+      grad.addColorStop(1, shade(COLORS[nextType], -25));
+      nctx.fillStyle = grad;
+      nctx.fillRect(px+1, py+1, size-2, size-2);
+    }
+  }
+
+  function loop(t){
+    if (!lastTime) lastTime = t;
+    const delta = t - lastTime;
+    lastTime = t;
+    if (!paused && !gameOver) {
+      dropTimer += delta;
+      if (dropTimer > dropInterval) {
+        if (!collides(current.cells, current.x, current.y + 1)) {
+          current.y += 1;
+        } else {
+          lockPiece();
+        }
+        dropTimer = 0;
+      }
+      draw();
+    }
+    animId = requestAnimationFrame(loop);
+  }
+
+  function showOverlay(title, sub, btnText){
+    const ov = document.getElementById('overlay');
+    document.getElementById('overlayTitle').textContent = title;
+    document.getElementById('overlaySub').textContent = sub;
+    document.getElementById('overlayBtn').textContent = btnText;
+    ov.style.display = 'flex';
+  }
+  function hideOverlay(){
+    document.getElementById('overlay').style.display = 'none';
+  }
+
+  function togglePause(){
+    if (gameOver) return;
+    paused = !paused;
+    if (paused) showOverlay('PAUSED', 'Press P to resume', 'RESUME');
+    else hideOverlay();
+  }
+
+  document.getElementById('overlayBtn').addEventListener('click', () => {
+    if (gameOver) { init(); }
+    else { togglePause(); }
+  });
+  document.getElementById('restartBtn').addEventListener('click', init);
+
+  window.addEventListener('keydown', (e) => {
+    switch(e.code) {
+      case 'ArrowLeft':
+      case 'KeyA': move(-1); e.preventDefault(); break;
+      case 'ArrowRight':
+      case 'KeyD': move(1); e.preventDefault(); break;
+      case 'ArrowDown':
+      case 'KeyS': softDrop(); e.preventDefault(); break;
+      case 'KeyR': rotate(); e.preventDefault(); break;
+      case 'Space': hardDrop(); e.preventDefault(); break;
+      case 'KeyP': togglePause(); e.preventDefault(); break;
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
