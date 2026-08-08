@@ -144,6 +144,82 @@
   }
   button:hover { transform: scale(1.05); }
   button:active { transform: scale(0.97); }
+
+  /* ---------- Mobile layout ---------- */
+  body.mobile { overflow: hidden; }
+  body.mobile #app {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    padding-top: 4px;
+    height: 100dvh;
+  }
+  body.mobile h1 {
+    font-size: 1.3rem;
+    letter-spacing: 3px;
+  }
+  body.mobile .panel { gap: 6px; }
+  body.mobile #boardWrap { padding: 6px; border-radius: 12px; }
+  body.mobile .side {
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  body.mobile .side .box {
+    padding: 6px 10px;
+    border-radius: 10px;
+  }
+  body.mobile .box h3 { font-size: 0.6rem; margin-bottom: 2px; }
+  body.mobile .stat { font-size: 1.1rem; }
+  body.mobile canvas#next { display: none; }
+  body.mobile .controls { display: none; }
+  body.mobile #restartBtn {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+
+  .touchpad {
+    display: none;
+    width: 100%;
+    max-width: 420px;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-top: 4px;
+  }
+  body.mobile .touchpad { display: flex; }
+  .touchpad .dpad {
+    display: grid;
+    grid-template-columns: 56px 56px;
+    grid-template-rows: 56px 56px;
+    gap: 8px;
+  }
+  .touchpad .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .touchpad button {
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    font-size: 1.4rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  #tRotate { background: linear-gradient(90deg, #c400ff, #ff2ee6); grid-column: 2; grid-row: 1; }
+  #tLeft { grid-column: 1; grid-row: 2; }
+  #tRight { grid-column: 2; grid-row: 2; }
+  #tDown { background: linear-gradient(90deg, #00e5ff, #00ff85); }
+  #tDrop { background: linear-gradient(90deg, #ffe600, #ff8c1a); font-size: 1.6rem; }
+
   @media (max-width: 900px) {
     :root { --cell: 26px; }
     h1 { font-size: 2rem; }
@@ -190,16 +266,48 @@
     </div>
     <button id="restartBtn">RESTART</button>
   </div>
+  <div class="touchpad">
+    <div class="dpad">
+      <button id="tRotate">R</button>
+      <button id="tLeft">◀</button>
+      <button id="tRight">▶</button>
+    </div>
+    <div class="actions">
+      <button id="tDown">▼</button>
+      <button id="tDrop">⤓</button>
+      <button id="tPause">II</button>
+    </div>
+  </div>
 </div>
 
 <script>
 (function(){
   const COLS = 10, ROWS = 20;
-  const CELL = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell'));
+
+  // ---- Device detection: touch/coarse-pointer + narrow viewport counts as mobile ----
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches;
+  const isNarrow = window.matchMedia('(max-width: 900px)').matches;
+  const isMobile = isTouch && isNarrow;
+  if (isMobile) document.body.classList.add('mobile');
+
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
-  canvas.width = COLS * CELL;
-  canvas.height = ROWS * CELL;
+
+  let CELL;
+  function computeCell(){
+    if (isMobile) {
+      const reserved = 190; // room for title, stat bar, touchpad
+      const availW = window.innerWidth * 0.94;
+      const availH = (window.innerHeight - reserved);
+      CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
+      CELL = Math.max(16, Math.min(CELL, 34));
+    } else {
+      CELL = 38;
+    }
+    canvas.width = COLS * CELL;
+    canvas.height = ROWS * CELL;
+  }
+  computeCell();
 
   const nextCanvas = document.getElementById('next');
   const nctx = nextCanvas.getContext('2d');
@@ -488,7 +596,7 @@
   function togglePause(){
     if (gameOver) return;
     paused = !paused;
-    if (paused) showOverlay('PAUSED', 'Press P to resume', 'RESUME');
+    if (paused) showOverlay('PAUSED', isMobile ? 'Tap resume to continue' : 'Press P to resume', 'RESUME');
     else hideOverlay();
   }
 
@@ -510,6 +618,31 @@
       case 'Space': hardDrop(); e.preventDefault(); break;
       case 'KeyP': togglePause(); e.preventDefault(); break;
     }
+  });
+
+  // ---- Touch controls (mobile only, hidden via CSS on desktop) ----
+  function bindTouch(id, fn){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); fn(); }, { passive: false });
+    el.addEventListener('click', fn); // fallback for mouse testing
+  }
+  bindTouch('tLeft', () => move(-1));
+  bindTouch('tRight', () => move(1));
+  bindTouch('tDown', () => softDrop());
+  bindTouch('tRotate', () => rotate());
+  bindTouch('tDrop', () => hardDrop());
+  bindTouch('tPause', () => togglePause());
+
+  // ---- Refit board on resize / orientation change (mobile) ----
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    if (!isMobile) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      computeCell();
+      draw();
+    }, 150);
   });
 
   init();
