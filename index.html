@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#150029">
 <link rel="manifest" href="manifest.json">
-<title>NEON TETRIS v1.9</title>
+<title>NEON TETRIS v2.1</title>
 <style>
   :root {
     --cell: 38px;
@@ -88,6 +88,7 @@
     border-radius: 8px;
     text-align: center;
     padding: 20px;
+    z-index: 10;
   }
   #overlay h2 {
     font-size: 2rem;
@@ -99,33 +100,37 @@
   #overlay button {
     margin-top: 10px;
   }
-  .side {
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
     display: flex;
-    flex-direction: row;
-    gap: 14px;
-    align-items: stretch;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 5;
   }
-  .box {
-    background: linear-gradient(145deg, #150029, #0a0018);
-    border-radius: 14px;
-    padding: 10px 20px;
-    box-shadow: 0 0 0 2px #00e5ff, 0 0 18px rgba(0, 229, 255, 0.45);
+  .hudStat {
+    background: rgba(8, 0, 20, 0.55);
+    border-radius: 8px;
+    padding: 4px 10px;
     text-align: center;
-    min-width: 90px;
+    backdrop-filter: blur(2px);
   }
-  .box h3 {
-    margin: 0 0 6px 0;
-    font-size: 0.8rem;
-    letter-spacing: 3px;
+  .hudStat h3 {
+    margin: 0;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
     color: #00e5ff;
     text-transform: uppercase;
   }
   .stat {
-    font-size: 1.7rem;
+    font-size: 1.15rem;
     font-weight: bold;
     color: #ffe600;
     text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
     transition: color 0.2s ease, text-shadow 0.2s ease;
+    line-height: 1.2;
   }
   .stat.newBest {
     color: #00ff85;
@@ -154,6 +159,21 @@
   button:hover { transform: scale(1.05); }
   button:active { transform: scale(0.97); }
 
+  .actionRow {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+  .actionRow button {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+    border-radius: 9px;
+    min-height: 38px;
+  }
+  #actionRestart { background: linear-gradient(90deg, #ffe600, #ff8c1a); }
+
   /* ---------- Mobile layout ---------- */
   body.mobile { overflow: hidden; }
   body.mobile #app {
@@ -169,46 +189,21 @@
     overflow-y: auto;
   }
   body.mobile h1 {
-    font-size: 1.3rem;
-    letter-spacing: 3px;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
   }
-  body.mobile .panel { gap: 6px; }
+  body.mobile .panel { gap: 6px; width: 100%; max-width: 420px; }
   body.mobile #boardWrap { padding: 6px; border-radius: 12px; }
-  body.mobile .side {
-    gap: 10px;
-  }
-  body.mobile .box {
-    padding: 6px 14px;
-    border-radius: 10px;
-    min-width: 70px;
-  }
-  body.mobile .box h3 { font-size: 0.6rem; margin-bottom: 2px; }
-  body.mobile .stat { font-size: 1.2rem; }
   body.mobile #boardWrap {
     box-shadow:
       0 0 0 2px #ff2ee6,
       0 0 12px 3px rgba(255, 46, 230, 0.5),
       inset 0 0 20px rgba(0, 229, 255, 0.12);
   }
-
-  .mobilePause {
-    display: none;
-    width: 56px;
-    height: 56px;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    font-size: 1.4rem;
-    border-radius: 14px;
-    align-items: center;
-    justify-content: center;
-    margin-top: 6px;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    user-select: none;
+  body.mobile .actionRow {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  body.mobile .mobilePause { display: flex; }
+
   body.mobile #boardWrap {
     padding-left: max(6px, env(safe-area-inset-left, 0px));
     padding-right: max(6px, env(safe-area-inset-right, 0px));
@@ -220,42 +215,45 @@
   }
 
   h1 .ver {
-    display: block;
+    display: inline;
     font-size: 0.9rem;
     letter-spacing: 3px;
-    margin-top: 2px;
+    margin-left: 8px;
     background: none;
     -webkit-text-fill-color: initial;
     color: #7de8ff;
     text-shadow: 0 0 8px rgba(125, 232, 255, 0.6);
     animation: none;
   }
-  body.mobile h1 .ver { font-size: 0.65rem; }
+  body.mobile h1 .ver { font-size: 0.7rem; margin-left: 6px; }
 </style>
 </head>
 <body>
 <div id="app">
   <div class="panel">
-    <h1>NEON TETRIS<span class="ver">v1.9</span></h1>
+    <h1>NEON TETRIS<span class="ver">v2.1</span></h1>
     <div id="boardWrap">
       <canvas id="board"></canvas>
+      <div id="hud">
+        <div class="hudStat">
+          <h3>Score</h3>
+          <div class="stat" id="score">0</div>
+        </div>
+        <div class="hudStat">
+          <h3>Best</h3>
+          <div class="stat" id="best">0</div>
+        </div>
+      </div>
       <div id="overlay">
         <h2 id="overlayTitle">PAUSED</h2>
         <p id="overlaySub">Press P to resume</p>
         <button id="overlayBtn">RESUME</button>
       </div>
     </div>
-    <div class="side">
-      <div class="box">
-        <h3>Score</h3>
-        <div class="stat" id="score">0</div>
-      </div>
-      <div class="box">
-        <h3>Best</h3>
-        <div class="stat" id="best">0</div>
-      </div>
+    <div class="actionRow">
+      <button id="actionPause">PAUSE</button>
+      <button id="actionRestart">RESTART</button>
     </div>
-    <button id="tPause" class="mobilePause">II</button>
   </div>
 </div>
 
@@ -276,29 +274,27 @@
   function computeCell(){
     if (isMobile) {
       // Measure the real height of everything sharing the column with the
-      // board (title, score/best row, pause button, gaps) instead of a
-      // hardcoded guess — this stays correct even as UI elements change.
+      // board (title, action button row, gaps) instead of a hardcoded guess —
+      // this stays correct even as UI elements change. The HUD is an absolute
+      // overlay on the board itself, so it costs zero flow height.
       const app = document.getElementById('app');
       const panel = document.querySelector('.panel');
       const title = document.querySelector('h1');
       const boardWrap = document.getElementById('boardWrap');
-      const side = document.querySelector('.side');
-      const pauseBtn = document.getElementById('tPause');
+      const actionRow = document.querySelector('.actionRow');
 
       const appStyle = getComputedStyle(app);
       const panelStyle = getComputedStyle(panel);
       const boardWrapStyle = getComputedStyle(boardWrap);
-      const pauseVisible = getComputedStyle(pauseBtn).display !== 'none';
 
       const rowGap = parseFloat(panelStyle.rowGap || panelStyle.gap) || 0;
-      const gapCount = 1 + 1 + (pauseVisible ? 1 : 0); // title→board, board→side, side→pause
+      const gapCount = 2; // title→board, board→actionRow
 
       const chromeHeight =
         parseFloat(appStyle.paddingTop) +
         title.offsetHeight +
         parseFloat(boardWrapStyle.paddingTop) + parseFloat(boardWrapStyle.paddingBottom) +
-        side.offsetHeight +
-        (pauseVisible ? pauseBtn.offsetHeight : 0) +
+        actionRow.offsetHeight +
         (rowGap * gapCount) +
         14; // safety buffer for rounding / sub-pixel layout
 
@@ -710,8 +706,8 @@
     lastTapTime = now;
   }, { passive: false });
 
-  document.getElementById('tPause').addEventListener('click', togglePause);
-  document.getElementById('tPause').addEventListener('touchstart', (e) => { e.preventDefault(); togglePause(); }, { passive: false });
+  document.getElementById('actionPause').addEventListener('click', togglePause);
+  document.getElementById('actionRestart').addEventListener('click', init);
 
   // ---- Screen Wake Lock: keep screen on during active play ----
   let wakeLock = null;
