@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#150029">
 <link rel="manifest" href="manifest.json">
-<title>NEON TETRIS v1.7</title>
+<title>NEON TETRIS v1.9</title>
 <style>
   :root {
     --cell: 38px;
@@ -166,6 +166,7 @@
     padding-right: max(10px, env(safe-area-inset-right, 0px));
     height: 100dvh;
     box-sizing: border-box;
+    overflow-y: auto;
   }
   body.mobile h1 {
     font-size: 1.3rem;
@@ -235,7 +236,7 @@
 <body>
 <div id="app">
   <div class="panel">
-    <h1>NEON TETRIS<span class="ver">v1.7</span></h1>
+    <h1>NEON TETRIS<span class="ver">v1.9</span></h1>
     <div id="boardWrap">
       <canvas id="board"></canvas>
       <div id="overlay">
@@ -244,18 +245,18 @@
         <button id="overlayBtn">RESUME</button>
       </div>
     </div>
-  </div>
-  <div class="side">
-    <div class="box">
-      <h3>Score</h3>
-      <div class="stat" id="score">0</div>
+    <div class="side">
+      <div class="box">
+        <h3>Score</h3>
+        <div class="stat" id="score">0</div>
+      </div>
+      <div class="box">
+        <h3>Best</h3>
+        <div class="stat" id="best">0</div>
+      </div>
     </div>
-    <div class="box">
-      <h3>Best</h3>
-      <div class="stat" id="best">0</div>
-    </div>
+    <button id="tPause" class="mobilePause">II</button>
   </div>
-  <button id="tPause" class="mobilePause">II</button>
 </div>
 
 <script>
@@ -274,10 +275,36 @@
   let CELL;
   function computeCell(){
     if (isMobile) {
-      const reserved = 90; // room for title, stat row, pause button (post-minimalist UI)
+      // Measure the real height of everything sharing the column with the
+      // board (title, score/best row, pause button, gaps) instead of a
+      // hardcoded guess — this stays correct even as UI elements change.
+      const app = document.getElementById('app');
+      const panel = document.querySelector('.panel');
+      const title = document.querySelector('h1');
+      const boardWrap = document.getElementById('boardWrap');
+      const side = document.querySelector('.side');
+      const pauseBtn = document.getElementById('tPause');
+
+      const appStyle = getComputedStyle(app);
+      const panelStyle = getComputedStyle(panel);
+      const boardWrapStyle = getComputedStyle(boardWrap);
+      const pauseVisible = getComputedStyle(pauseBtn).display !== 'none';
+
+      const rowGap = parseFloat(panelStyle.rowGap || panelStyle.gap) || 0;
+      const gapCount = 1 + 1 + (pauseVisible ? 1 : 0); // title→board, board→side, side→pause
+
+      const chromeHeight =
+        parseFloat(appStyle.paddingTop) +
+        title.offsetHeight +
+        parseFloat(boardWrapStyle.paddingTop) + parseFloat(boardWrapStyle.paddingBottom) +
+        side.offsetHeight +
+        (pauseVisible ? pauseBtn.offsetHeight : 0) +
+        (rowGap * gapCount) +
+        14; // safety buffer for rounding / sub-pixel layout
+
       const horizontalReserve = 50; // #app padding (20) + #boardWrap padding (12) + glow bleed margin
       const availW = document.documentElement.clientWidth - horizontalReserve;
-      const availH = (window.innerHeight - reserved);
+      const availH = window.innerHeight - chromeHeight;
       CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
       CELL = Math.max(16, Math.min(CELL, 34));
     } else {
